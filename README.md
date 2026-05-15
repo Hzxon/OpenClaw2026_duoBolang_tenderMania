@@ -4,10 +4,6 @@
 >
 > Autonomous tender-hunting agent — finds compatible procurement opportunities for a company, scores fit through a multi-agent reasoning loop, and drafts personalized expressions of interest gated by human approval.
 
-Built for **OpenClaw Agenthon 2026** (RISTEK x Build Club Indonesia), 12-hour build sprint, May 15 2026.
-
-Team: **duoBolang**
-Repo: `OpenClaw2026_duoBolang_SponsorUs` (legacy URL; product name is **TenderMania**)
 
 ---
 
@@ -25,19 +21,7 @@ A consultancy spends hours every week trawling LPSE, World Bank, and ministry po
 
 Every arrow is a tool call. The whole loop runs unattended on a single command. Only the final send is gated on a human tap.
 
-This is **not a chatbot**. There is no chat UI. The agents act on a schedule, score with reasoning, and produce concrete artifacts (drafts in SQLite, approval cards on Telegram).
-
----
-
-## Why this matches the Agenthon rubric
-
-| Criterion | Weight | How it lands |
-|-----------|------|--------------|
-| Use Case Clarity & Impact | 10% | Real pain for Indonesian software consultancies bidding on government and World-Bank-funded work. Direct cost saving on FTE hours. |
-| Creativity & Originality | 30% | Multi-dimension scoring with hard-gates + RAG-grounded drafts that cite their own evidence — not just "ChatGPT for tenders." |
-| Autonomy & Agent Behaviour | 30% | Fully autonomous scrape → normalize → score → decide → draft loop with zero human input until approval. 3 scorer agents fan-out via `asyncio`. Reasoning trace persisted per dimension. |
-| Technical Execution | 20% | Pydantic-validated structured output, BM25 RAG, hard-gate aggregator, SQLite persistence with full audit trail, Telegram callback flow. |
-| Real-World Deployability | 10% | One-command setup, dry-run mode, env-driven config, reproducible install. |
+There is no chat UI. The agents act on a schedule, score with reasoning, and produce concrete artifacts (drafts in SQLite, approval cards on Telegram).
 
 ---
 
@@ -123,7 +107,6 @@ Both sources have curated Indonesian-flavored fallback fixtures (`data/fixtures/
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM:** any OpenAI-compatible endpoint via `OPENAI_API_KEY` + `SPONSORUS_LLM_BASE_URL`. Defaults to a local 9router gateway with `cx/gpt-5.5`. Public OpenAI works by setting the base URL to `https://api.openai.com/v1`.
 - **Scrape:** `httpx` + Python `urllib` (World Bank API), `selectolax` for HTML fallback
 - **Schemas:** `pydantic` v2 with strict JSON-mode prompts
 - **RAG:** custom BM25 (no third-party dep)
@@ -174,8 +157,6 @@ python3 -m sponsorus.telegram_bot
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `OPENAI_API_KEY` | `sk-9router-local` | Bearer for the LLM endpoint |
-| `SPONSORUS_LLM_BASE_URL` | `http://localhost:20128/v1` | Any OpenAI-compatible API |
-| `SPONSORUS_LLM_MODEL` | `cx/gpt-5.5` | Chat model |
 | `SCORE_THRESHOLD` | `60` | Weighted-score gate |
 | `MAX_TENDERS` | `5` | Tenders processed per run |
 | `PREFER_LIVE` | `true` | Live scrape vs cached fixture |
@@ -241,7 +222,6 @@ The agent correctly:
 - archived a strategy/policy contract (no software deliverables)
 - archived a job posting that surfaced through the procurement feed
 - pursued two real software-development tenders
-- explicitly flagged Indonesia-vs-Uganda geography risk in its drafts
 
 ---
 
