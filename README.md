@@ -117,53 +117,170 @@ Both sources have curated Indonesian-flavored fallback fixtures (`data/fixtures/
 
 ---
 
-## Quick Start
+## Quick Start (untuk juri / for reviewers)
+
+> **TL;DR untuk juri:** dengan satu API key OpenAI, repo ini berjalan dari klon-segar sampai menghasilkan draf email tender yang siap di-approve dalam **kurang dari 5 menit**. Mode default sudah aman: `DRY_RUN=true` + `PUSH_TELEGRAM=false`, jadi tidak ada email atau pesan Telegram yang benar-benar terkirim sampai Anda sengaja mematikannya.
+
+### Prasyarat / Prerequisites
+
+- **Python 3.11 atau lebih baru** (`python3 --version` harus menampilkan ≥ 3.11). Kami menguji di 3.11, 3.12, dan 3.14.
+- **`git`**
+- **API key dari endpoint yang OpenAI-compatible.** Public OpenAI (`sk-...`) bekerja langsung. Endpoint lokal seperti Ollama, LM Studio, atau gateway internal juga bekerja — cukup ubah `SPONSORUS_LLM_BASE_URL` di `.env`.
+- *(Opsional)* Bot Telegram + chat ID jika ingin gerbang persetujuan via Telegram. Tanpa ini, persetujuan dilakukan via CLI.
+- *(Opsional)* Akun Gmail + app password jika ingin benar-benar mengirim email. Tanpa ini, mode DRY-RUN akan mencetak email ke terminal.
+
+### Step 1 — Clone & install
 
 ```bash
 git clone https://github.com/Hzxon/OpenClaw2026_duoBolang_SponsorUs.git
 cd OpenClaw2026_duoBolang_SponsorUs
 
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install --upgrade pip
 pip install -r requirements.txt
+```
 
+### Step 2 — Configure environment
+
+```bash
 cp .env.example .env
-#  edit .env:
-#    OPENAI_API_KEY=...           (or SPONSORUS_LLM_BASE_URL for a local gateway)
-#    TELEGRAM_BOT_TOKEN=...       (optional — drafts still persist without it)
-#    TELEGRAM_OPERATOR_CHAT_ID=...
+# Buka .env di editor favorit dan isi minimal OPENAI_API_KEY.
+# Default lain (SOURCES, SCORE_THRESHOLD, DRY_RUN, dst.) sudah aman.
+```
 
-python3 -m sponsorus.scripts.init_db
-python3 -m sponsorus.scripts.seed_company
+Isi minimum di `.env` agar pipeline jalan:
 
-#  one autonomous cycle (scrape → score → draft)
+```
+OPENAI_API_KEY=sk-...                              # WAJIB
+SPONSORUS_LLM_BASE_URL=https://api.openai.com/v1   # ganti jika pakai gateway lokal
+SPONSORUS_LLM_MODEL=gpt-4o-mini                    # atau model lain yang Anda punya
+```
+
+### Step 3 — Initialize database & seed company profile
+
+```bash
+python3 -m sponsorus.scripts.init_db          # buat schema SQLite di data/sponsorus.db
+python3 -m sponsorus.scripts.seed_company     # muat profil perusahaan dari data/company_profile.yaml
+```
+
+Output yang diharapkan:
+```
+DB initialized at /path/to/data/sponsorus.db
+Company profile loaded: 'Bolang Solutions'
+```
+
+### Step 4 — Run satu siklus autonomous loop
+
+```bash
 python3 -m sponsorus.run_pipeline
+```
 
-#  list pending drafts
+Selama ±60–120 detik agent akan:
+1. **Scrape** tender real-time dari **PLN e-Procurement** + **World Bank Procurement Notices**.
+2. **Normalize** tiap tender ke `TenderOpportunity` (validasi Pydantic).
+3. **Score** secara paralel dengan 3 agen: capability / eligibility / win-probability.
+4. **Aggregate** dengan hard-gates → keputusan `PURSUE` atau `ARCHIVE`.
+5. **Draft** Expression of Interest (Bahasa atau English, tergantung tender) untuk yang `PURSUE`.
+
+Output yang diharapkan (contoh):
+```
+[pipeline] run a8f3b56b started — threshold=55.0, sources=['lpse', 'worldbank'], live=True
+[pipeline] company: Bolang Solutions
+[pipeline] RAG index built over 23 chunks
+[pipeline] lpse: 3 raw tenders (live:pln-eproc)
+[pipeline] worldbank: 3 raw tenders (live:worldbank-procnotices)
+[pipeline] [1/6] normalizing: KHS PEKERJAAN JASA PEMELIHARAAN ROW UPT MANADO
+[pipeline]   → ARCHIVE (weighted=23.8; cap=18, elig=38, win=12)
+...
+[pipeline] [4/6] normalizing: Pilot for VO/MS/ZS Accounting Implementation
+[pipeline]   → PURSUE (weighted=58.5; cap=68, elig=58, win=38)
+[pipeline]   drafted EOI #1
+[pipeline] run a8f3b56b done in 93.5s
+```
+
+> **Tidak ada tender yang di-PURSUE?** Ini adalah perilaku **jujur** — tender real hari ini mungkin tidak cocok. Coba: `SCORE_THRESHOLD=40 python3 -m sponsorus.run_pipeline` atau `PREFER_LIVE=false python3 -m sponsorus.run_pipeline` (memakai fixture Indonesian BUMN bawaan untuk demo deterministik).
+
+### Step 5 — Review & approve drafts (gerbang human-in-the-loop)
+
+Setelah pipeline selesai, draf disimpan di SQLite dengan status `pending`. Approve via **CLI** (cara default, paling simpel):
+
+```bash
+# Lihat semua draf yang menunggu approval
 python3 -m sponsorus.scripts.approve
 
-#  inspect / approve / deny a draft (the human-in-the-loop gate)
+# Inspeksi isi draf #1
 python3 -m sponsorus.scripts.approve 1 show
-python3 -m sponsorus.scripts.approve 1 approve   # triggers send_email tool (DRY_RUN by default)
-python3 -m sponsorus.scripts.approve 1 deny
 
-#  optional — Telegram approval bot (long-poll). Only run if the bot
-#  token is not already in use by another service (e.g. Hermes Gateway).
-python3 -m sponsorus.telegram_bot
+# Setujui (memicu tool send_email — di mode DRY_RUN hanya mencetak ke terminal)
+python3 -m sponsorus.scripts.approve 1 approve
+
+# Tolak
+python3 -m sponsorus.scripts.approve 1 deny
 ```
+
+*Atau* via **Telegram bot** (jika `TELEGRAM_BOT_TOKEN` + `TELEGRAM_OPERATOR_CHAT_ID` terisi):
+
+```bash
+# Terminal 1: bot polling
+python3 -m sponsorus.telegram_bot
+
+# Terminal 2: push semua draf pending sebagai kartu approval ke Telegram
+python3 -c "from sponsorus import db; from sponsorus.telegram_bot import push_draft_blocking; \
+[push_draft_blocking(d['id']) for d in db.list_pending_drafts()]"
+```
+Lalu tap ✅ atau ❌ di Telegram.
+
+### Verifikasi cepat (sanity check)
+
+Setelah Step 4 selesai, jalankan:
+```bash
+python3 -c "import sqlite3; c = sqlite3.connect('data/sponsorus.db'); \
+print('runs:    ', c.execute('SELECT COUNT(*) FROM runs').fetchone()[0]); \
+print('tenders: ', c.execute('SELECT COUNT(*) FROM tenders').fetchone()[0]); \
+print('drafts:  ', c.execute('SELECT COUNT(*) FROM drafts').fetchone()[0]); \
+print('scores:  ', c.execute('SELECT COUNT(*) FROM scores').fetchone()[0])"
+```
+Harus muncul angka non-nol untuk `runs`, `tenders`, dan `scores`. Jika `drafts: 0` itu normal (semua tender di-archive — lihat catatan di atas tentang `SCORE_THRESHOLD`).
+
+### Demo cepat 100% offline (tidak perlu internet)
+
+Jika juri ingin reproducible run tanpa bergantung pada network atau availability tender real-time:
+
+```bash
+PREFER_LIVE=false SCORE_THRESHOLD=40 SOURCES=lpse python3 -m sponsorus.run_pipeline
+```
+
+Memakai fixture Indonesian BUMN bawaan (PLN, Pemkot Bandung, Kemendikbud, dll. — semua dimodelkan sesuai format LPSE/SPSE asli). Dijamin `PURSUE ≥ 1` dan deterministik.
 
 ### Environment variables
 
-| Var | Default | Purpose |
-|-----|---------|---------|
-| `OPENAI_API_KEY` | `sk-9router-local` | Bearer for the LLM endpoint |
-| `SCORE_THRESHOLD` | `60` | Weighted-score gate |
-| `MAX_TENDERS` | `5` | Tenders processed per run |
-| `PREFER_LIVE` | `true` | Live scrape vs cached fixture |
-| `PUSH_TELEGRAM` | `true` | Push approvals to Telegram |
-| `DRY_RUN` | `true` | Print emails instead of sending |
-| `TELEGRAM_BOT_TOKEN` | — | BotFather token |
-| `TELEGRAM_OPERATOR_CHAT_ID` | — | Where approval cards land |
+| Variable | Default | Wajib? | Purpose |
+|----------|---------|--------|---------|
+| `OPENAI_API_KEY` | — | **WAJIB** | Bearer token untuk endpoint LLM |
+| `SPONSORUS_LLM_BASE_URL` | `http://localhost:20128/v1` | tidak | Base URL OpenAI-compatible (set ke `https://api.openai.com/v1` untuk public OpenAI) |
+| `SPONSORUS_LLM_MODEL` | `cx/gpt-5.5` | tidak | Model untuk chat completion |
+| `SOURCES` | `lpse,worldbank` | tidak | Sumber tender: `lpse`, `worldbank`, atau keduanya |
+| `MAX_TENDERS` | `6` | tidak | Jumlah tender per siklus |
+| `PREFER_LIVE` | `true` | tidak | `true` = scrape real, `false` = fixture |
+| `SCORE_THRESHOLD` | `55` | tidak | Cutoff weighted-score untuk PURSUE |
+| `PUSH_TELEGRAM` | `true` | tidak | Push kartu approval ke Telegram |
+| `DRY_RUN` | `true` | tidak | `true` = print email; `false` = kirim SMTP beneran |
+| `TELEGRAM_BOT_TOKEN` | — | opsional | Token dari @BotFather |
+| `TELEGRAM_OPERATOR_CHAT_ID` | — | opsional | Chat ID tujuan kartu approval |
+| `SMTP_USER` | — | opsional | Gmail address (hanya jika `DRY_RUN=false`) |
+| `SMTP_APP_PASSWORD` | — | opsional | Google app password |
+
+### Troubleshooting
+
+| Gejala | Penyebab & solusi |
+|--------|-------------------|
+| `ModuleNotFoundError: No module named 'sponsorus'` | Virtualenv belum diaktifkan. Jalankan `source .venv/bin/activate` lebih dulu. |
+| `openai.AuthenticationError: 401` | `OPENAI_API_KEY` di `.env` salah/expired. Cek dengan `curl -H "Authorization: Bearer $OPENAI_API_KEY" $SPONSORUS_LLM_BASE_URL/models`. |
+| `openai.NotFoundError: model not found` | `SPONSORUS_LLM_MODEL` tidak tersedia di endpoint Anda. Untuk public OpenAI gunakan `gpt-4o-mini` atau `gpt-4o`. |
+| Pipeline `live` gagal connect ke PLN/World Bank | Network blocked. Jalankan dengan `PREFER_LIVE=false` — fixture Indonesian BUMN akan dipakai otomatis. |
+| Telegram bot error `Conflict: terminated by other getUpdates` | Token Telegram dipakai oleh proses lain. Hentikan service lain, atau pakai approval via CLI. |
+| Email tidak terkirim | Default `DRY_RUN=true` — email hanya dicetak ke terminal. Untuk benar-benar kirim, set `DRY_RUN=false` + isi `SMTP_USER`/`SMTP_APP_PASSWORD`. |
 
 ---
 
