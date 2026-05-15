@@ -1,4 +1,4 @@
-# OpenClaw2026_duoBolang_SponsorUs
+# OpenClaw2026_duoBolang_tenderMania
 
 > # **TenderMania**
 >
