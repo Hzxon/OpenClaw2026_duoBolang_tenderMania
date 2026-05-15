@@ -1,0 +1,56 @@
+[
+  {
+    "title": "Pengembangan Sistem Informasi Manajemen Penyaluran Listrik",
+    "blurb": "PLN — Pengembangan SIM Penyaluran Listrik untuk UPT Manado. Kategori: JASA LAINNYA. Wilayah: Sulawesi. Metode: Tender Terbuka Pascakualifikasi 1 Tahap 2 Sampul. Diperlukan SBU sub-bidang jasa pengembangan aplikasi.",
+    "source_url": "https://eproc.pln.co.id/portal/pengumuman_pengadaan",
+    "country": "Indonesia",
+    "deadline": "2026-06-12",
+    "notice_type": "Tender Terbuka",
+    "sector": "JASA LAINNYA"
+  },
+  {
+    "title": "Pengadaan Aplikasi Pelayanan Publik Berbasis AI Chatbot",
+    "blurb": "Pemkot Bandung — Pengembangan aplikasi pelayanan publik berbasis AI chatbot dalam Bahasa Indonesia, terintegrasi dengan sistem verifikasi NIK. Deliverables: kode sumber, dokumentasi, pelatihan, garansi 6 bulan. PAGU IDR 950 juta.",
+    "source_url": "https://lpse.bandung.go.id/eproc4/lelang/12345",
+    "country": "Indonesia",
+    "deadline": "2026-06-05",
+    "notice_type": "Tender Cepat",
+    "sector": "JASA KONSULTANSI"
+  },
+  {
+    "title": "Platform Analitik Data Mahasiswa Universitas Negeri",
+    "blurb": "Kemendikbud — Pengadaan platform analitik mahasiswa untuk prediksi risiko akademik, terintegrasi dengan SIAK-NG. Deliverables: kode, dokumentasi, pelatihan, dukungan 12 bulan. PAGU IDR 720 juta.",
+    "source_url": "https://lpse.kemdikbud.go.id/eproc4/lelang/22001",
+    "country": "Indonesia",
+    "deadline": "2026-07-01",
+    "notice_type": "Tender",
+    "sector": "JASA KONSULTANSI"
+  },
+  {
+    "title": "Konstruksi Ruas Jalan Kabupaten Sukabumi 4.2 KM",
+    "blurb": "Pemkab Sukabumi — Konstruksi jalan aspal hot-mix, drainase, dan rambu-rambu. PAGU IDR 18 milyar. Persyaratan SBU SI001 (Konstruksi Sipil).",
+    "source_url": "https://lpse.jabarprov.go.id/eproc4/lelang/30188",
+    "country": "Indonesia",
+    "deadline": "2026-06-20",
+    "notice_type": "Tender",
+    "sector": "PEKERJAAN KONSTRUKSI"
+  },
+  {
+    "title": "Pengadaan 200 unit komputer dan 50 printer",
+    "blurb": "BUMN Q — Pengadaan barang hardware desktop dan printer; tidak ada lingkup pengembangan perangkat lunak. PAGU IDR 1.6 milyar. Persyaratan: distributor resmi vendor.",
+    "source_url": "https://eproc.example-bumn.co.id/pengadaan/9001",
+    "country": "Indonesia",
+    "deadline": "2026-05-28",
+    "notice_type": "Pengadaan Langsung",
+    "sector": "PENGADAAN BARANG"
+  },
+  {
+    "title": "Sistem Pelaporan Data Realtime Lintas Provinsi",
+    "blurb": "Kementerian X — Pengembangan platform ETL realtime + dashboard pelaporan KPI lintas provinsi. Deliverables: ingestion, dashboards, RBAC, dukungan 12 bulan. PAGU IDR 2.4 milyar. Persyaratan SBU jasa pengembangan aplikasi dan ISO 27001.",
+    "source_url": "https://lpse.example-ministry.go.id/eproc4/lelang/77821",
+    "country": "Indonesia",
+    "deadline": "2026-06-30",
+    "notice_type": "Tender Terbatas",
+    "sector": "JASA KONSULTANSI"
+  }
+]

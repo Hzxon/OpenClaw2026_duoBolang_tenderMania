@@ -106,6 +106,59 @@ Both sources have curated Indonesian-flavored fallback fixtures (`data/fixtures/
 
 ## Tech Stack
 
+### Hermes Agent runtime integration
+
+TenderMania ships as a first-class Hermes Agent capability — installable
+skill, schedulable cron job, and a programmatic tool entrypoint for
+`delegate_task` workers. The integration layer lives under `hermes/` in
+this repo.
+
+#### 1. Install as a Hermes skill
+
+```bash
+hermes skills install https://raw.githubusercontent.com/Hzxon/OpenClaw2026_duoBolang_SponsorUs/main/SKILL.md
+```
+
+Now any Hermes session can `/skill tendermania` to load operator
+knowledge — install steps, env vars, integration patterns, pitfalls.
+
+#### 2. Daily autonomous hunt via Hermes cron
+
+The helper at `hermes/cron_run.sh` (copied to `~/.hermes/scripts/tendermania_cron.sh`)
+runs the pipeline deterministically and emits a JSON summary on stdout.
+A scheduled cron job fires it every weekday at 9 AM, then a Hermes agent
+turns the JSON into a human-readable Telegram report:
+
+```python
+cronjob(
+  action="create",
+  name="tendermania-daily-hunt",
+  schedule="0 9 * * 1-5",
+  script="tendermania_cron.sh",
+  workdir="/Users/hazron/sponsorus",
+  prompt="Parse the injected JSON, summarize pending drafts, end with the inspect command.",
+  enabled_toolsets=["terminal", "file"],
+)
+```
+
+#### 3. Programmatic invocation from any agent / subagent
+
+The `hermes/tool_run.py` module exposes a single `run_tendermania(...)`
+function plus a CLI entrypoint:
+
+```bash
+python3 -m hermes.tool_run --sources lpse --max 4 --threshold 55
+```
+
+Returns clean structured JSON: `run_id`, `elapsed_s`, `tenders_seen`,
+`tenders_pursued`, `source`, `pending_drafts[]`. Designed to be called
+from a `delegate_task(toolsets=["terminal"])` worker so the main
+conversation never has to see pipeline streaming output.
+
+See `hermes/README.md` for full integration patterns.
+
+## Tech Stack
+
 - **Python 3.11+**
 - **Scrape:** `httpx` + Python `urllib` (World Bank API), `selectolax` for HTML fallback
 - **Schemas:** `pydantic` v2 with strict JSON-mode prompts

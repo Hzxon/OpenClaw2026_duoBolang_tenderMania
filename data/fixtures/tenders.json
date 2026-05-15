@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Software development for ministerial e-reporting platform",
+    "blurb": "Indonesia \u2014 Ministry of X seeks a vendor to build a realtime cross-province KPI reporting platform; scope includes data ingestion, dashboards, role-based access, and 12 months of support. Estimated value IDR 2.4B.",
+    "source_url": "https://example.lpse.go.id/eproc4/lelang/1234/pengumuman",
+    "country": "Indonesia",
+    "deadline": "2026-06-12",
+    "notice_type": "Request for Proposal",
+    "sector": "Public Administration"
+  },
+  {
+    "title": "AI-powered citizen-service chatbot for provincial government",
+    "blurb": "Indonesia \u2014 Pemprov Y procures a Bahasa Indonesia chatbot with LLM tool-use, integrated with population ID verification; deliverables include code, training, and 6 months SLA. Budget IDR 950 juta.",
+    "source_url": "https://example.lpse.go.id/eproc4/lelang/1235/pengumuman",
+    "country": "Indonesia",
+    "deadline": "2026-06-05",
+    "notice_type": "Request for Proposal",
+    "sector": "Information and Communications"
+  },
+  {
+    "title": "Construction of district road segment 4.2 km",
+    "blurb": "Indonesia \u2014 Pemkab Z procures asphalt road construction; includes drainage and signage. Budget IDR 18B. Requires construction-class SBU.",
+    "source_url": "https://example.lpse.go.id/eproc4/lelang/1236/pengumuman",
+    "country": "Indonesia",
+    "deadline": "2026-06-20",
+    "notice_type": "Request for Bid",
+    "sector": "Transportation"
+  },
+  {
+    "title": "Procurement of 200 desktop PCs and 50 printers",
+    "blurb": "Indonesia \u2014 BUMN Q hardware procurement only, no software development scope. Budget IDR 1.6B.",
+    "source_url": "https://example.lpse.go.id/eproc4/lelang/1237/pengumuman",
+    "country": "Indonesia",
+    "deadline": "2026-05-28",
+    "notice_type": "Request for Quotation",
+    "sector": "ICT \u2014 Hardware"
+  },
+  {
+    "title": "Data analytics platform for higher-education student risk prediction",
+    "blurb": "Indonesia \u2014 Universitas A seeks vendor to deliver a student-analytics dashboard with academic-risk model integration with SIAK-NG; deliverables include code + training + 12-month support. Budget IDR 720 juta.",
+    "source_url": "https://example.lpse.go.id/eproc4/lelang/1238/pengumuman",
+    "country": "Indonesia",
+    "deadline": "2026-07-01",
+    "notice_type": "Request for Proposal",
+    "sector": "Education"
+  }
+]
