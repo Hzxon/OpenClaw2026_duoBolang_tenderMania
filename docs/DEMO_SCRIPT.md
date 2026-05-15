@@ -18,7 +18,7 @@ Format: voice-over OBS screen capture. Three browser/terminal windows pre-arrang
 ## Spoken narration (target 110 seconds)
 
 ```
-0:00–0:08  "This is SponsorUs — an autonomous multi-agent system that finds
+0:00–0:08  "This is TenderMania — an autonomous multi-agent system that finds
             compatible tenders for a company. Built in twelve hours for
             OpenClaw Agenthon 2026."
 
@@ -49,17 +49,18 @@ Format: voice-over OBS screen capture. Three browser/terminal windows pre-arrang
             because we have React, FastAPI, and dashboard experience. The
             agent then drafts an expression of interest."
 
-1:18–1:35  [switch to Telegram window]
-           "The draft lands here. Notice it cites the actual past contracts
-            and the ISO certification. Notice it also flags the Indonesia
-            vs. Uganda geography risk honestly."
+1:18–1:35  [show CLI: python3 -m sponsorus.scripts.approve 2 show]
+           "The draft is in SQLite, awaiting approval. The body cites real past
+            contracts and the ISO certification, and honestly flags the
+            Indonesia-vs-Uganda geography risk."
 
-1:35–1:50  [tap ✅ Approve]
-           "When I approve, the email sends — in dry-run for this demo.
-            Without my tap, nothing leaves the system."
+1:35–1:50  [run: approve 2 approve]
+           "When I run the approve command, the send tool fires —
+            in dry-run for this demo. Without my command, nothing leaves
+            the system."
 
 1:50–2:00  "Multi-agent. Tool-using. Autonomous loop. Real source. Audit trail.
-            That's SponsorUs."
+            That's TenderMania."
 ```
 
 ## Common pitfalls

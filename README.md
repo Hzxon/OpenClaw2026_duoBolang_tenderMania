@@ -1,8 +1,13 @@
 # OpenClaw2026_duoBolang_SponsorUs
 
-> **Autonomous tender-hunting agent** — finds compatible procurement opportunities for a company, scores fit through a multi-agent reasoning loop, and drafts personalized expressions of interest gated by Telegram human approval.
+> # **TenderMania**
+>
+> Autonomous tender-hunting agent — finds compatible procurement opportunities for a company, scores fit through a multi-agent reasoning loop, and drafts personalized expressions of interest gated by human approval.
 
 Built for **OpenClaw Agenthon 2026** (RISTEK x Build Club Indonesia), 12-hour build sprint, May 15 2026.
+
+Team: **duoBolang**
+Repo: `OpenClaw2026_duoBolang_SponsorUs` (legacy URL; product name is **TenderMania**)
 
 ---
 
@@ -69,13 +74,19 @@ This is **not a chatbot**. There is no chat UI. The agents act on a schedule, sc
                 └─────────┬──────────┘
                           ▼
                 ┌────────────────────┐
-                │  Telegram approval │  inline buttons → callback
+                │  Approval gate     │  CLI (`scripts/approve`) or Telegram
+                │                    │  inline buttons → callback
                 └─────────┬──────────┘
                           ▼ approve
                 ┌────────────────────┐
                 │  Email sender      │  yagmail (DRY_RUN by default)
                 └────────────────────┘
 ```
+
+The system gives you two approval paths so the demo doesn't fight your existing tools:
+
+- **CLI approval (no token conflicts):** `python3 -m sponsorus.scripts.approve` lists pending drafts, lets you approve, deny, or inspect by ID. The send tool only fires after approval.
+- **Telegram approval (when the token is free):** `python3 -m sponsorus.telegram_bot` runs a long-poll bot. Pipeline pushes a card with ✅/❌ inline buttons; tapping ✅ moves the draft to `approved` and triggers the send tool.
 
 ### Hard gates (deterministic, not LLM-decided)
 
@@ -124,10 +135,19 @@ cp .env.example .env
 python3 -m sponsorus.scripts.init_db
 python3 -m sponsorus.scripts.seed_company
 
-#  one autonomous cycle
+#  one autonomous cycle (scrape → score → draft)
 python3 -m sponsorus.run_pipeline
 
-#  start the approval bot in another terminal
+#  list pending drafts
+python3 -m sponsorus.scripts.approve
+
+#  inspect / approve / deny a draft (the human-in-the-loop gate)
+python3 -m sponsorus.scripts.approve 1 show
+python3 -m sponsorus.scripts.approve 1 approve   # triggers send_email tool (DRY_RUN by default)
+python3 -m sponsorus.scripts.approve 1 deny
+
+#  optional — Telegram approval bot (long-poll). Only run if the bot
+#  token is not already in use by another service (e.g. Hermes Gateway).
 python3 -m sponsorus.telegram_bot
 ```
 
@@ -167,7 +187,9 @@ sponsorus/
   scripts/
     init_db.py         One-shot DB setup
     seed_company.py    Load company profile from YAML
+    approve.py         CLI approve/deny/inspect for pending drafts
     demo.py            One-cycle demo runner
+    seed_event.py      [legacy compat shim — redirects to seed_company]
 data/
   company_profile.yaml The company on whose behalf the agent hunts
   fixtures/            Cached scrape blob for offline demo

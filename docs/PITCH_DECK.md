@@ -5,14 +5,14 @@ Build with Gamma.app or Slides — paste these bullets into the prompt or the sl
 ---
 
 ## Slide 1 — Title
-**SponsorUs**
+**TenderMania**
 *Autonomous tender-hunting agent*
 
 OpenClaw Agenthon 2026 · Team duoBolang
 - Hzxon (build / repo)
 - (your teammate)
 
-GitHub: github.com/Hzxon/OpenClaw2026_duoBolang_SponsorUs
+GitHub: github.com/Hzxon/OpenClaw2026_duoBolang_SponsorUs (repo retains legacy name)
 
 ---
 
