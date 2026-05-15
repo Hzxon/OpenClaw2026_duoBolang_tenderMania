@@ -71,7 +71,7 @@ pause
 
 # ─── Step 1: company profile ─────────────────────────────────────────
 banner "Step 1 — Company profile (the agent hunts on its behalf)"
-head -25 data/company_profile.yaml
+sed -n '1,25p' data/company_profile.yaml
 pause
 
 # ─── Step 2: the autonomous loop ─────────────────────────────────────
