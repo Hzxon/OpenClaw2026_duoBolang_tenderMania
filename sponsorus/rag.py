@@ -88,40 +88,45 @@ class RAGIndex:
         return scored[:k]
 
 
-def event_profile_to_chunks(profile: dict) -> list[str]:
-    """Flatten the structured event profile into retrievable text chunks."""
+def company_profile_to_chunks(profile: dict) -> list[str]:
+    """Flatten the structured company profile into retrievable text chunks."""
     chunks: list[str] = []
     name = profile.get("name", "")
     tagline = profile.get("tagline", "")
-    chunks.append(f"Event: {name}. Tagline: {tagline}.")
+    chunks.append(f"Company: {name}. Tagline: {tagline}.")
 
     if desc := profile.get("description"):
         chunks.append(f"Description: {desc}")
 
-    aud = profile.get("audience", {})
-    if aud:
+    chunks.append(
+        f"Team size: {profile.get('team_size', 'unknown')}; "
+        f"annual revenue (IDR): {profile.get('annual_revenue_idr', 'unknown')}."
+    )
+
+    for cap in profile.get("capabilities", []):
+        chunks.append(f"Capability: {cap}")
+
+    for cert in profile.get("certifications", []):
+        chunks.append(f"Certification: {cert}")
+
+    for ind in profile.get("industries_served", []):
+        chunks.append(f"Industry served: {ind}")
+
+    for geo in profile.get("geographies_served", []):
+        chunks.append(f"Geography served: {geo}")
+
+    for pc in profile.get("past_contracts", []):
         chunks.append(
-            f"Audience: {aud.get('size', 'N/A')} attendees. "
-            f"Demographics: {aud.get('demographics', 'N/A')}. "
-            f"Geographies: {', '.join(aud.get('geographies', []))}."
+            f"Past contract: '{pc.get('title')}' — IDR {pc.get('value_idr', 'TBD')}"
+            f" ({pc.get('year', '?')}). {pc.get('summary', '')}"
         )
 
-    for prop in profile.get("value_props", []):
-        chunks.append(f"Value proposition: {prop}")
-
-    for past in profile.get("past_sponsors", []):
-        chunks.append(
-            f"Past sponsor: {past.get('name')} — tier {past.get('tier')}. "
-            f"Why they sponsored: {past.get('rationale', '')}"
-        )
-
-    for tier in profile.get("sponsorship_tiers", []):
-        chunks.append(
-            f"Sponsorship tier '{tier.get('name')}' (IDR {tier.get('price_idr', 'TBD')}): "
-            f"deliverables — {', '.join(tier.get('deliverables', []))}."
-        )
-
-    if isp := profile.get("ideal_sponsor_profile"):
-        chunks.append(f"Ideal sponsor profile: {isp}")
+    if isp := profile.get("ideal_tender_profile"):
+        chunks.append(f"Ideal tender profile: {isp}")
 
     return chunks
+
+
+# Back-compat alias so older imports don't break during the pivot.
+def event_profile_to_chunks(profile: dict) -> list[str]:  # pragma: no cover
+    return company_profile_to_chunks(profile)

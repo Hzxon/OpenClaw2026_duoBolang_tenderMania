@@ -38,8 +38,9 @@ async def push_draft_for_approval(application: Application, draft_id: int) -> No
         return
     body_preview = draft["body_markdown"][:600]
     text = (
-        f"*Sponsor outreach pending approval*\n"
-        f"\n*To:* {draft['company_name']} ({draft['contact_email'] or 'no email'})"
+        f"*Tender pursuit pending approval*\n"
+        f"\n*Buyer:* {draft['buyer'] or 'unknown'} ({draft['country'] or 'n/a'})"
+        f"\n*Tender:* {draft['tender_title']}"
         f"\n*Subject:* {draft['subject']}\n\n"
         f"```\n{body_preview}\n```"
     )
@@ -87,7 +88,7 @@ async def cmd_pending(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Inbox zero — no drafts awaiting approval.")
         return
     lines = [
-        f"#{d['id']} → {d['company_name']} — {d['subject']}"
+        f"#{d['id']} → {d['buyer']} — {d['tender_title']}"
         for d in pending[:10]
     ]
     await update.message.reply_text("Pending drafts:\n" + "\n".join(lines))

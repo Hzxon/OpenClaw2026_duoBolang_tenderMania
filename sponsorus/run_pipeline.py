@@ -1,17 +1,17 @@
 """Autonomous orchestrator — the AGENT LOOP.
 
 Runs end-to-end without human intervention until the approval gate:
-  1. Scrape live web for sponsor prospects.
-  2. Normalize each into a SponsorProspect (LLM tool call).
+  1. Scrape live tender notices from World Bank procurement API.
+  2. Normalize each into a TenderOpportunity (LLM tool call).
   3. Persist to SQLite.
-  4. Build a RAG index over the event profile.
-  5. Fan out 3 scorer agents in parallel for each prospect.
+  4. Build a RAG index over the company profile.
+  5. Fan out 3 scorer agents in parallel for each tender.
   6. Aggregate + threshold decide pursue/archive.
-  7. For each pursued prospect, draft outreach (LLM) and persist.
+  7. For each pursued tender, draft an expression-of-interest (LLM) and persist.
   8. Push every draft to Telegram for human approval.
 
-Steps 1-7 are fully autonomous. Step 8 is the explicit
-human-in-the-loop gate — required for any system that sends external email.
+Steps 1-7 are fully autonomous. Step 8 is the human-in-the-loop gate —
+required for any system that sends external email.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from sponsorus.agents.draft import draft_outreach
 from sponsorus.agents.normalize import normalize
 from sponsorus.agents.score import ScoreContext, aggregate, score_all
 from sponsorus.agents.scrape import scrape
-from sponsorus.rag import RAGIndex, event_profile_to_chunks
+from sponsorus.rag import RAGIndex, company_profile_to_chunks
 from sponsorus.schemas import OutreachDraft
 
 load_dotenv()
@@ -40,52 +40,52 @@ def _log(msg: str) -> None:
 
 def run_pipeline(
     prefer_live: bool = True,
-    max_prospects: int = 8,
+    max_tenders: int = 6,
     threshold: Optional[float] = None,
     push_telegram: bool = True,
 ) -> dict:
-    threshold = threshold if threshold is not None else float(os.environ.get("SCORE_THRESHOLD", "65"))
+    threshold = threshold if threshold is not None else float(os.environ.get("SCORE_THRESHOLD", "60"))
     run_id = uuid.uuid4().hex[:8]
     db.start_run(run_id)
     t0 = time.time()
     _log(f"run {run_id} started — threshold={threshold}, live={prefer_live}")
 
-    profile = db.load_event_profile()
+    profile = db.load_company_profile()
     if not profile:
-        raise SystemExit("No event profile loaded. Run: python3 -m sponsorus.scripts.seed_event")
-    _log(f"event: {profile['name']} ({profile.get('tagline')})")
+        raise SystemExit("No company profile loaded. Run: python3 -m sponsorus.scripts.seed_company")
+    _log(f"company: {profile['name']} ({profile.get('tagline')})")
 
-    rag = RAGIndex.build(event_profile_to_chunks(profile))
+    rag = RAGIndex.build(company_profile_to_chunks(profile))
     _log(f"RAG index built over {len(rag.chunks)} chunks")
 
-    raw_list, source_label = scrape(prefer_live=prefer_live, max_results=max_prospects)
-    _log(f"scraped {len(raw_list)} raw prospects from {source_label}")
+    raw_list, source_label = scrape(prefer_live=prefer_live, max_results=max_tenders)
+    _log(f"scraped {len(raw_list)} raw tenders from {source_label}")
 
-    pursued: list[tuple[int, "OutreachDraft"]] = []
+    pursued: list[tuple[int, OutreachDraft]] = []
     archived = 0
 
     for i, raw in enumerate(raw_list, start=1):
-        _log(f"[{i}/{len(raw_list)}] normalizing: {raw.name}")
+        _log(f"[{i}/{len(raw_list)}] normalizing: {raw.title[:80]}")
         try:
-            prospect = normalize(raw)
+            tender = normalize(raw)
         except Exception as e:  # noqa: BLE001
             _log(f"  normalize failed: {e!r}")
             continue
-        prospect_id = db.upsert_prospect(prospect.model_dump(mode="json"))
+        tender_id = db.upsert_tender(tender.model_dump(mode="json"))
 
-        ctx = ScoreContext(prospect=prospect, event_profile=profile, rag=rag)
-        _log(f"  scoring {prospect.company_name} (3 agents in parallel)…")
+        ctx = ScoreContext(tender=tender, company_profile=profile, rag=rag)
+        _log(f"  scoring (3 agents in parallel)…")
         try:
             scores = score_all(ctx)
         except Exception as e:  # noqa: BLE001
             _log(f"  score failed: {e!r}")
             continue
         for s in scores:
-            db.insert_score(prospect_id, s.dimension, s.score, s.reasoning, s.evidence)
+            db.insert_score(tender_id, s.dimension, s.score, s.reasoning, s.evidence)
 
         decision = aggregate(ctx, scores, threshold=threshold)
         db.insert_decision(
-            prospect_id,
+            tender_id,
             weighted=decision.weighted_score,
             decision=decision.decision,
             rationale=decision.rationale,
@@ -93,27 +93,26 @@ def run_pipeline(
         _log(
             f"  → {decision.decision.upper()} "
             f"(weighted={decision.weighted_score:.1f}; "
-            f"cap={decision.capability_fit}, strat={decision.strategic_fit}, "
-            f"act={decision.activation_likelihood})"
+            f"cap={decision.capability_fit}, elig={decision.eligibility_fit}, "
+            f"win={decision.win_probability})"
         )
 
         if decision.decision == "pursue":
             try:
-                draft = draft_outreach(prospect, profile, scores, rag)
+                draft = draft_outreach(tender, profile, scores, rag)
                 draft_id = db.insert_draft(
-                    prospect_id,
+                    tender_id,
                     draft.subject,
                     draft.body_markdown,
                     draft.personalization_notes,
                 )
                 pursued.append((draft_id, draft))
-                _log(f"  drafted outreach #{draft_id}: {draft.subject!r}")
+                _log(f"  drafted EOI #{draft_id}: {draft.subject!r}")
             except Exception as e:  # noqa: BLE001
                 _log(f"  draft failed: {e!r}")
         else:
             archived += 1
 
-    # Push to Telegram (best-effort — pipeline still succeeds if Telegram is down).
     pushed = 0
     if push_telegram and pursued and os.environ.get("TELEGRAM_BOT_TOKEN"):
         from sponsorus.telegram_bot import push_draft_blocking
@@ -128,9 +127,9 @@ def run_pipeline(
     stats = {
         "run_id": run_id,
         "elapsed_s": round(time.time() - t0, 1),
-        "prospects_seen": len(raw_list),
-        "prospects_pursued": len(pursued),
-        "prospects_archived": archived,
+        "tenders_seen": len(raw_list),
+        "tenders_pursued": len(pursued),
+        "tenders_archived": archived,
         "drafts_pushed_to_telegram": pushed,
         "source": source_label,
     }
@@ -143,7 +142,7 @@ def main() -> None:
     db.init_db()
     stats = run_pipeline(
         prefer_live=os.environ.get("PREFER_LIVE", "true").lower() in ("1", "true", "yes"),
-        max_prospects=int(os.environ.get("MAX_PROSPECTS", "8")),
+        max_tenders=int(os.environ.get("MAX_TENDERS", os.environ.get("MAX_PROSPECTS", "5"))),
         push_telegram=os.environ.get("PUSH_TELEGRAM", "true").lower() in ("1", "true", "yes"),
     )
     print("\n=== PIPELINE STATS ===")

@@ -1,37 +1,47 @@
-"""Normalizer agent — turns raw scrape blobs into SponsorProspect records.
+"""Normalizer agent — turns raw tender scrape blobs into TenderOpportunity records.
 
-Uses LLM structured output (Pydantic-validated) so downstream agents get clean,
-typed records they can rely on. The prompt instructs the model to refuse
-hallucination — unknown fields are left null rather than guessed.
+Uses LLM structured output (Pydantic-validated) so downstream agents get
+clean, typed records. Prompt forbids hallucination — unknown fields stay null.
 """
 from __future__ import annotations
 
-from sponsorus.agents.scrape import RawProspect
+from sponsorus.agents.scrape import RawTender
 from sponsorus.llm import structured
-from sponsorus.schemas import SponsorProspect
+from sponsorus.schemas import TenderOpportunity
 
-NORMALIZE_SYSTEM = """You are a data-normalization agent. Given a short blurb about a company
-that has sponsored events in the past, extract structured information for a sponsor outreach pipeline.
+NORMALIZE_SYSTEM = """You are a data-normalization agent for a tender-hunting pipeline.
+Given a raw procurement-notice blurb, extract structured fields.
 
-Rules:
-- Do not invent facts. If a field is not implied by the blurb, set it to null or an empty list.
-- contact_email should be your best inferred *generic* address (e.g. partnerships@<domain>) only if
-  a domain is obvious from the source URL — otherwise null.
-- audience_overlap = audience segments this sponsor likely wants to reach (e.g. "university students",
-  "developers", "startup founders", "Indonesian Gen-Z").
-- raw_summary = one neutral sentence describing the company. No marketing fluff."""
+Hard rules:
+- Do NOT invent facts. If a field isn't implied, set it to null or [].
+- buyer = the procuring organization (ministry, agency, BUMN, university, World-Bank-funded project owner).
+- estimated_value_idr: convert USD/EUR amounts to IDR using ~16,000 IDR/USD or ~17,000 IDR/EUR if explicitly stated; otherwise null.
+- required_certifications: only include items the blurb explicitly demands (SBU classes, ISO certs, registrations).
+- deliverables: extract concrete output types (software, hardware, training, services, construction, supplies).
+- scope_summary: ONE neutral paragraph (≤80 words). No marketing language."""
 
 
-def normalize(raw: RawProspect) -> SponsorProspect:
+def normalize(raw: RawTender) -> TenderOpportunity:
     user = (
-        f"Company name (as scraped): {raw.name}\n"
-        f"Source URL: {raw.source_url}\n"
+        f"RAW TENDER NOTICE\n"
+        f"Title: {raw.title}\n"
+        f"Country: {raw.country}\n"
+        f"Sector: {raw.sector}\n"
+        f"Notice type: {raw.notice_type}\n"
+        f"Submission deadline: {raw.deadline}\n"
+        f"Source URL: {raw.source_url}\n\n"
         f"Blurb:\n{raw.blurb}\n\n"
-        "Extract structured prospect info."
+        "Extract structured TenderOpportunity JSON."
     )
-    prospect = structured(system=NORMALIZE_SYSTEM, user=user, schema=SponsorProspect)
-    # Always carry source URL through; don't trust the LLM to remember.
-    prospect.public_url = raw.source_url
-    if not prospect.company_name.strip():
-        prospect.company_name = raw.name
-    return prospect
+    tender = structured(system=NORMALIZE_SYSTEM, user=user, schema=TenderOpportunity)
+    # Always carry ground-truth fields through; don't trust the LLM to remember.
+    tender.public_url = raw.source_url
+    if not tender.title.strip():
+        tender.title = raw.title
+    if raw.country and not tender.country:
+        tender.country = raw.country
+    if raw.deadline and not tender.submission_deadline:
+        tender.submission_deadline = raw.deadline
+    if raw.notice_type and not tender.notice_type:
+        tender.notice_type = raw.notice_type
+    return tender

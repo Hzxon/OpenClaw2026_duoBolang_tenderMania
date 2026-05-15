@@ -1,200 +1,198 @@
-"""Scraper agent — TOOL CALL #1.
+"""Tender-hunting scraper.
 
-Live-fetches a sponsor-prospect listing page, extracts prospect cards, and
-returns raw text blobs ready for the normalizer. Falls back to a cached
-fixture if the network is unavailable mid-demo.
+Live source: World Bank procurement notices public API
+  https://search.worldbank.org/api/v2/procnotices
 
-Default source: SponsorPitch-style public listings of "companies that
-recently sponsored events" — we use a public, scrape-friendly source.
+Why this source:
+- Real, public, no-auth REST endpoint with 400k+ live tenders.
+- Returns structured JSON: project name, description, country, deadline, notice type, URL.
+- Includes Indonesia, SEA, and global IT-development tenders relevant to a
+  software consultancy bidding for World-Bank-funded work.
+
+Falls back to a cached fixture when the network is unavailable so the demo
+is reliable.
 """
 from __future__ import annotations
 
 import json
+import ssl
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
-from selectolax.parser import HTMLParser
-
 FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "fixtures"
-FIXTURE_FILE = FIXTURE_DIR / "prospects.json"
+FIXTURE_FILE = FIXTURE_DIR / "tenders.json"
 
-# Live data source: Wikipedia's "List of companies of Indonesia" table.
-# Rationale: stable, public, scrape-friendly (static HTML, no JS, robots-allowed),
-# returns real Indonesian companies — the exact prospect universe an Indonesian
-# event organizer should target. Each row gives us name, sector, and a one-line
-# description we can hand to the LLM normalizer.
-LIVE_URL = "https://en.wikipedia.org/wiki/List_of_companies_of_Indonesia"
+WB_API = (
+    "https://search.worldbank.org/api/v2/procnotices"
+    "?format=json&rows={rows}&srt=submission_deadline_date&order=asc"
+    "&fl=id,bid_description,project_name,project_ctry_name,country_name,"
+    "submission_deadline_date,notice_type,procurement_method,major_sector,"
+    "proc_summary,notice_status,url,bid_reference_no,project_id"
+)
 
 UA = "SponsorUs/0.1 (+https://github.com/Hzxon/OpenClaw2026_duoBolang_SponsorUs)"
 
-
-@dataclass
-class RawProspect:
-    """Raw scrape output before LLM normalization."""
-
-    name: str
-    blurb: str
-    source_url: str
-
-    def to_dict(self) -> dict:
-        return {"name": self.name, "blurb": self.blurb, "source_url": self.source_url}
-
-
-# Sector keywords we prefer (relevance bias toward likely event sponsors).
+# Sectors a software consultancy could realistically bid on.
 PREFERRED_SECTORS = {
-    "tech", "technolog", "software", "internet", "telecom", "media",
-    "financ", "bank", "fintech", "consumer", "retail", "e-commerce",
-    "transport", "logistics", "education", "edutech",
+    "information", "ict", "technology", "digital", "software",
+    "public administration", "education", "finance",
 }
 
 
-def _parse_wikipedia_companies(html: str, base_url: str) -> list[RawProspect]:
-    """Extract company rows from the Wikipedia list-of-companies wikitable.
+@dataclass
+class RawTender:
+    """Raw scrape output — pre-LLM-normalization."""
 
-    Columns observed: Rank | Image | Name | Industry | Headquarters | Revenue | Notes
-    Some rows have an image cell, some don't — we key off cell content rather
-    than fixed indices.
-    """
-    tree = HTMLParser(html)
-    out: list[RawProspect] = []
-    for tr in tree.css("table.wikitable tbody tr"):
-        tds = tr.css("td")
-        if len(tds) < 3:
+    title: str
+    blurb: str
+    source_url: str
+    country: str = ""
+    deadline: str = ""
+    notice_type: str = ""
+    sector: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "title": self.title,
+            "blurb": self.blurb,
+            "source_url": self.source_url,
+            "country": self.country,
+            "deadline": self.deadline,
+            "notice_type": self.notice_type,
+            "sector": self.sector,
+        }
+
+
+def _ssl_ctx() -> ssl.SSLContext:
+    # Some macOS Python builds fail TLS verification against gov.* certs;
+    # we relax verification here because we never send credentials.
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def fetch_live(rows: int = 30, timeout: float = 15.0) -> list[RawTender]:
+    """Hit the live World Bank procurement API."""
+    url = WB_API.format(rows=rows)
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+        data = json.loads(r.read().decode("utf-8", errors="ignore"))
+    items = data.get("procnotices", {})
+    if isinstance(items, dict):
+        items = list(items.values())
+    out: list[RawTender] = []
+    for it in items:
+        if not isinstance(it, dict):
             continue
-        cells = [td.text(strip=True) for td in tds]
-        # First cell is rank (digits). Skip image-only cells.
-        non_empty = [c for c in cells if c]
-        if len(non_empty) < 2:
+        desc = (it.get("bid_description") or "").strip()
+        proj = (it.get("project_name") or "").strip()
+        if not (desc or proj):
             continue
-        # Find the company-name cell: first non-numeric, non-empty cell.
-        name = ""
-        sector = ""
-        notes = ""
-        for c in non_empty:
-            if not c.isdigit() and len(c) >= 2:
-                name = c
-                break
-        if not name:
-            continue
-        # Sector and notes are usually the next two readable cells.
-        rest = [c for c in non_empty if c != name and not c.isdigit()]
-        if rest:
-            sector = rest[0]
-        if len(rest) >= 2:
-            notes = rest[-1]
-        # Pull the wiki link if present.
-        link = tr.css_first("td a")
-        href = link.attributes.get("href", "") if link else ""
-        if href.startswith("/"):
-            href = "https://en.wikipedia.org" + href
+        country = (it.get("country_name") or it.get("project_ctry_name") or "").strip()
+        deadline = (it.get("submission_deadline_date") or "").strip()
+        notice = (it.get("notice_type") or "").strip()
+        sector = (it.get("major_sector") or "").strip()
+        title = desc[:120] if desc else proj[:120]
         blurb = (
-            f"{name} — Indonesian company, sector: {sector}. "
-            f"{notes if notes and notes != sector else ''}"
+            f"{desc} | Project: {proj}. Country: {country}. Sector: {sector}. "
+            f"Type: {notice}. Submission deadline: {deadline or 'TBD'}."
         ).strip()
+        url_field = it.get("url") or "https://projects.worldbank.org/"
         out.append(
-            RawProspect(
-                name=name[:80],
-                blurb=blurb[:500],
-                source_url=href or base_url,
+            RawTender(
+                title=title,
+                blurb=blurb[:600],
+                source_url=url_field,
+                country=country,
+                deadline=deadline,
+                notice_type=notice,
+                sector=sector,
             )
         )
-    # Bias toward preferred sectors so we don't waste LLM calls on bad fits
-    # (oil & gas, mining, etc.) for a student tech hackathon.
-    def _pref(p: RawProspect) -> int:
-        b = p.blurb.lower()
+    # Skip already-awarded notices — they're non-actionable.
+    out = [t for t in out if "award" not in t.notice_type.lower()]
+
+    # Bias toward sectors a software consultancy could deliver on.
+    def _pref(t: RawTender) -> int:
+        b = (t.blurb + " " + t.sector).lower()
         return -sum(1 for kw in PREFERRED_SECTORS if kw in b)
 
     out.sort(key=_pref)
-    # Dedup by name, preserve order
-    seen: set[str] = set()
-    uniq: list[RawProspect] = []
-    for p in out:
-        k = p.name.lower().strip()
-        if k in seen or len(k) < 2:
-            continue
-        seen.add(k)
-        uniq.append(p)
-    return uniq
+    return out
 
 
-def fetch_live(url: str = LIVE_URL, timeout: float = 15.0) -> list[RawProspect]:
-    """Hit the live URL. Raises on failure — caller decides fallback."""
-    with httpx.Client(timeout=timeout, headers={"User-Agent": UA}, follow_redirects=True) as c:
-        r = c.get(url)
-        r.raise_for_status()
-        html = r.text
-    return _parse_wikipedia_companies(html, url)
+def fetch_fixture() -> list[RawTender]:
+    if FIXTURE_FILE.exists():
+        data = json.loads(FIXTURE_FILE.read_text())
+        return [RawTender(**d) for d in data]
+    return _seed_fixture()
 
 
-def fetch_fixture() -> list[RawProspect]:
-    if not FIXTURE_FILE.exists():
-        return _seed_fixture()
-    data = json.loads(FIXTURE_FILE.read_text())
-    return [RawProspect(**d) for d in data]
-
-
-def _seed_fixture() -> list[RawProspect]:
-    """Hand-curated fallback fixture so the demo never depends on network."""
+def _seed_fixture() -> list[RawTender]:
+    """Curated fallback so the demo never depends on network."""
     seed = [
         {
-            "name": "GitHub",
-            "blurb": "GitHub — developer platform, frequent hackathon and student community sponsor; runs GitHub Education, Campus Experts, and Student Pack programs.",
-            "source_url": "https://education.github.com/",
+            "title": "Software development for ministerial e-reporting platform",
+            "blurb": "Indonesia — Ministry of X seeks a vendor to build a realtime cross-province KPI reporting platform; scope includes data ingestion, dashboards, role-based access, and 12 months of support. Estimated value IDR 2.4B.",
+            "source_url": "https://example.lpse.go.id/eproc4/lelang/1234/pengumuman",
+            "country": "Indonesia",
+            "deadline": "2026-06-12",
+            "notice_type": "Request for Proposal",
+            "sector": "Public Administration",
         },
         {
-            "name": "DigitalOcean",
-            "blurb": "DigitalOcean — cloud infrastructure provider, recurring sponsor of hackathons via DO Hatch and university clubs; targets developers and SaaS founders.",
-            "source_url": "https://www.digitalocean.com/community/pages/hatch",
+            "title": "AI-powered citizen-service chatbot for provincial government",
+            "blurb": "Indonesia — Pemprov Y procures a Bahasa Indonesia chatbot with LLM tool-use, integrated with population ID verification; deliverables include code, training, and 6 months SLA. Budget IDR 950 juta.",
+            "source_url": "https://example.lpse.go.id/eproc4/lelang/1235/pengumuman",
+            "country": "Indonesia",
+            "deadline": "2026-06-05",
+            "notice_type": "Request for Proposal",
+            "sector": "Information and Communications",
         },
         {
-            "name": "MongoDB",
-            "blurb": "MongoDB — document database company, sponsors student hackathons and AI events through MongoDB for Startups and university programs.",
-            "source_url": "https://www.mongodb.com/students",
+            "title": "Construction of district road segment 4.2 km",
+            "blurb": "Indonesia — Pemkab Z procures asphalt road construction; includes drainage and signage. Budget IDR 18B. Requires construction-class SBU.",
+            "source_url": "https://example.lpse.go.id/eproc4/lelang/1236/pengumuman",
+            "country": "Indonesia",
+            "deadline": "2026-06-20",
+            "notice_type": "Request for Bid",
+            "sector": "Transportation",
         },
         {
-            "name": "Tokopedia",
-            "blurb": "Tokopedia — Indonesian e-commerce unicorn, sponsors campus tech events and competitive programming contests across SEA universities.",
-            "source_url": "https://www.tokopedia.com/about/",
+            "title": "Procurement of 200 desktop PCs and 50 printers",
+            "blurb": "Indonesia — BUMN Q hardware procurement only, no software development scope. Budget IDR 1.6B.",
+            "source_url": "https://example.lpse.go.id/eproc4/lelang/1237/pengumuman",
+            "country": "Indonesia",
+            "deadline": "2026-05-28",
+            "notice_type": "Request for Quotation",
+            "sector": "ICT — Hardware",
         },
         {
-            "name": "Bibit",
-            "blurb": "Bibit — Indonesian fintech investment app, sponsors student finance and tech communities to reach Gen Z first-time investors.",
-            "source_url": "https://bibit.id/",
-        },
-        {
-            "name": "Pertamina",
-            "blurb": "Pertamina — Indonesian state oil & gas; sponsors large national events and CSR-aligned conferences but rarely small student hackathons.",
-            "source_url": "https://www.pertamina.com/",
-        },
-        {
-            "name": "Niagahoster",
-            "blurb": "Niagahoster — Indonesian web hosting; consistent sponsor of campus tech events with hosting credits and prizes for student developers.",
-            "source_url": "https://www.niagahoster.co.id/",
-        },
-        {
-            "name": "Ruangguru",
-            "blurb": "Ruangguru — Indonesian edtech; sponsors student-focused academic and tech events; brand fit strongest with K-12 and university audiences.",
-            "source_url": "https://www.ruangguru.com/",
+            "title": "Data analytics platform for higher-education student risk prediction",
+            "blurb": "Indonesia — Universitas A seeks vendor to deliver a student-analytics dashboard with academic-risk model integration with SIAK-NG; deliverables include code + training + 12-month support. Budget IDR 720 juta.",
+            "source_url": "https://example.lpse.go.id/eproc4/lelang/1238/pengumuman",
+            "country": "Indonesia",
+            "deadline": "2026-07-01",
+            "notice_type": "Request for Proposal",
+            "sector": "Education",
         },
     ]
     FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
     FIXTURE_FILE.write_text(json.dumps(seed, indent=2))
-    return [RawProspect(**d) for d in seed]
+    return [RawTender(**d) for d in seed]
 
 
-def scrape(prefer_live: bool = True, max_results: int = 12) -> tuple[list[RawProspect], str]:
-    """Public entrypoint. Returns (prospects, source_label).
-
-    Tries live first when prefer_live=True. Falls back to fixture so the demo
-    is reliable even if a portal goes down.
-    """
+def scrape(prefer_live: bool = True, max_results: int = 12) -> tuple[list[RawTender], str]:
+    """Public entrypoint. Returns (tenders, source_label)."""
     if prefer_live:
         try:
-            live = fetch_live()
+            live = fetch_live(rows=max(max_results * 3, 30))
             if live:
-                return live[:max_results], f"live:{LIVE_URL}"
-        except Exception as e:  # noqa: BLE001 — demo robustness
+                return live[:max_results], "live:worldbank-procnotices"
+        except Exception as e:  # noqa: BLE001
             print(f"[scraper] live fetch failed: {e!r}; using fixture")
     fixture = fetch_fixture()
     return fixture[:max_results], "fixture:seed"

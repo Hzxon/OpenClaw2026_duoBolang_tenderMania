@@ -1,0 +1,67 @@
+name: "Bolang Solutions"
+tagline: "Indonesian software consultancy specializing in AI agents, data platforms, and digital government workflows."
+homepage: "https://bolang.example.id"
+
+description: |
+  Bolang Solutions is a Jakarta-based software consultancy with 28 engineers,
+  4 years of public-sector delivery experience, and a focus on AI agents,
+  data platforms, and government digital transformation. We have completed
+  contracts with two ministries and one BUMN, and we are actively bidding
+  on new work for 2026.
+
+capabilities:
+  - "AI agent systems and multi-agent orchestration (Python, LangGraph, Hermes Agent)"
+  - "Data engineering and analytics platforms (PostgreSQL, dbt, Airflow, BigQuery)"
+  - "Internal tools and dashboard development (React, FastAPI, Next.js)"
+  - "Government / e-government workflow automation"
+  - "Cloud infrastructure (AWS, GCP) and on-premise hybrid deployments"
+  - "Mobile-friendly web app delivery for citizen-facing services"
+
+certifications:
+  - "ISO/IEC 27001:2022 (information security)"
+  - "ISO/IEC 9001:2015 (quality management)"
+  - "Sertifikat Badan Usaha (SBU) — Sub-bidang Jasa Pengembangan Aplikasi"
+  - "Penyedia terdaftar di LPSE Nasional"
+
+team_size: 28
+annual_revenue_idr: 6500000000
+geographies_served:
+  - "Indonesia (Jabodetabek, Bandung, Surabaya, Yogyakarta)"
+  - "Singapore (advisory only)"
+
+industries_served:
+  - "Government / public sector"
+  - "Banking and fintech"
+  - "Higher education"
+  - "Healthcare (rumah sakit BUMN)"
+
+ideal_tender_profile: |
+  Best fit: Indonesian government / BUMN procurement for software development,
+  data platforms, AI/automation, or e-government workflows; budgets between
+  IDR 200 juta and IDR 5 milyar; lead time 3+ weeks; deliverables include
+  code + documentation + training. Weak fit: hardware procurement,
+  construction, oil & gas EPC, defense, anything requiring a manufacturing
+  license or non-IT badan usaha.
+
+past_contracts:
+  - title: "Sistem Pelaporan Data Realtime — Kementerian X"
+    value_idr: 1850000000
+    year: 2024
+    summary: "Realtime ETL pipeline + dashboard for cross-province KPI reporting; 11-month delivery, 4 engineers."
+  - title: "Chatbot Pelayanan Publik — Pemkot Y"
+    value_idr: 720000000
+    year: 2024
+    summary: "Citizen-service chatbot (Bahasa Indonesia) with handoff to human agents; integrated with PeduliLindungi-style ID verification."
+  - title: "Platform Analitik Mahasiswa — Universitas Z"
+    value_idr: 540000000
+    year: 2023
+    summary: "Student-analytics dashboard for academic risk prediction; integrated SIAK-NG."
+
+team_languages:
+  - "Bahasa Indonesia (native)"
+  - "English (professional)"
+
+contact:
+  primary_email: "tenders@bolang.example.id"
+  primary_language: "id-ID"
+  decision_maker: "Direktur Operasional"

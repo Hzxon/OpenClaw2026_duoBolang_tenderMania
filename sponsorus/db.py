@@ -11,7 +11,7 @@ from typing import Any, Iterator
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "sponsorus.db"
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS event_profile (
+CREATE TABLE IF NOT EXISTS company_profile (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     tagline TEXT,
@@ -19,49 +19,52 @@ CREATE TABLE IF NOT EXISTS event_profile (
     updated_at REAL NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS prospects (
+CREATE TABLE IF NOT EXISTS tenders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_name TEXT NOT NULL,
-    industry TEXT,
+    title TEXT NOT NULL,
+    buyer TEXT,
+    country TEXT,
+    sector TEXT,
+    submission_deadline TEXT,
     contact_email TEXT,
     public_url TEXT,
     payload_json TEXT NOT NULL,
     created_at REAL NOT NULL,
-    UNIQUE(company_name)
+    UNIQUE(title, buyer)
 );
 
 CREATE TABLE IF NOT EXISTS scores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    prospect_id INTEGER NOT NULL,
+    tender_id INTEGER NOT NULL,
     dimension TEXT NOT NULL,
     score INTEGER NOT NULL,
     reasoning TEXT,
     evidence_json TEXT,
     created_at REAL NOT NULL,
-    FOREIGN KEY (prospect_id) REFERENCES prospects(id)
+    FOREIGN KEY (tender_id) REFERENCES tenders(id)
 );
 
 CREATE TABLE IF NOT EXISTS decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    prospect_id INTEGER NOT NULL UNIQUE,
+    tender_id INTEGER NOT NULL UNIQUE,
     weighted_score REAL NOT NULL,
     decision TEXT NOT NULL,
     rationale TEXT,
     created_at REAL NOT NULL,
-    FOREIGN KEY (prospect_id) REFERENCES prospects(id)
+    FOREIGN KEY (tender_id) REFERENCES tenders(id)
 );
 
 CREATE TABLE IF NOT EXISTS drafts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    prospect_id INTEGER NOT NULL,
+    tender_id INTEGER NOT NULL,
     subject TEXT NOT NULL,
     body_markdown TEXT NOT NULL,
     personalization_json TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',  -- pending | approved | denied | sent
+    status TEXT NOT NULL DEFAULT 'pending',
     created_at REAL NOT NULL,
     decided_at REAL,
     sent_at REAL,
-    FOREIGN KEY (prospect_id) REFERENCES prospects(id)
+    FOREIGN KEY (tender_id) REFERENCES tenders(id)
 );
 
 CREATE TABLE IF NOT EXISTS runs (
@@ -91,10 +94,10 @@ def init_db() -> None:
         c.executescript(SCHEMA)
 
 
-def upsert_event_profile(name: str, tagline: str, profile: dict[str, Any]) -> None:
+def upsert_company_profile(name: str, tagline: str, profile: dict[str, Any]) -> None:
     with conn() as c:
         c.execute(
-            """INSERT INTO event_profile (id, name, tagline, profile_json, updated_at)
+            """INSERT INTO company_profile (id, name, tagline, profile_json, updated_at)
                VALUES (1, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
                  name=excluded.name, tagline=excluded.tagline,
@@ -103,9 +106,9 @@ def upsert_event_profile(name: str, tagline: str, profile: dict[str, Any]) -> No
         )
 
 
-def load_event_profile() -> dict[str, Any] | None:
+def load_company_profile() -> dict[str, Any] | None:
     with conn() as c:
-        row = c.execute("SELECT * FROM event_profile WHERE id=1").fetchone()
+        row = c.execute("SELECT * FROM company_profile WHERE id=1").fetchone()
         if not row:
             return None
         return {
@@ -115,58 +118,63 @@ def load_event_profile() -> dict[str, Any] | None:
         }
 
 
-def upsert_prospect(p: dict[str, Any]) -> int:
+def upsert_tender(t: dict[str, Any]) -> int:
     with conn() as c:
         cur = c.execute(
-            """INSERT INTO prospects (company_name, industry, contact_email, public_url, payload_json, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT(company_name) DO UPDATE SET
-                 industry=excluded.industry,
+            """INSERT INTO tenders
+               (title, buyer, country, sector, submission_deadline, contact_email, public_url, payload_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(title, buyer) DO UPDATE SET
+                 country=excluded.country, sector=excluded.sector,
+                 submission_deadline=excluded.submission_deadline,
                  contact_email=excluded.contact_email,
                  public_url=excluded.public_url,
                  payload_json=excluded.payload_json
                RETURNING id""",
             (
-                p["company_name"],
-                p.get("industry"),
-                p.get("contact_email"),
-                p.get("public_url"),
-                json.dumps(p),
+                t.get("title", ""),
+                t.get("buyer", ""),
+                t.get("country"),
+                t.get("sector"),
+                t.get("submission_deadline"),
+                t.get("contact_email"),
+                t.get("public_url"),
+                json.dumps(t),
                 time.time(),
             ),
         )
         return cur.fetchone()[0]
 
 
-def insert_score(prospect_id: int, dim: str, score: int, reasoning: str, evidence: list[str]) -> None:
+def insert_score(tender_id: int, dim: str, score: int, reasoning: str, evidence: list[str]) -> None:
     with conn() as c:
         c.execute(
-            """INSERT INTO scores (prospect_id, dimension, score, reasoning, evidence_json, created_at)
+            """INSERT INTO scores (tender_id, dimension, score, reasoning, evidence_json, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (prospect_id, dim, score, reasoning, json.dumps(evidence), time.time()),
+            (tender_id, dim, score, reasoning, json.dumps(evidence), time.time()),
         )
 
 
-def insert_decision(prospect_id: int, weighted: float, decision: str, rationale: str) -> None:
+def insert_decision(tender_id: int, weighted: float, decision: str, rationale: str) -> None:
     with conn() as c:
         c.execute(
-            """INSERT INTO decisions (prospect_id, weighted_score, decision, rationale, created_at)
+            """INSERT INTO decisions (tender_id, weighted_score, decision, rationale, created_at)
                VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(prospect_id) DO UPDATE SET
+               ON CONFLICT(tender_id) DO UPDATE SET
                  weighted_score=excluded.weighted_score,
                  decision=excluded.decision,
                  rationale=excluded.rationale,
                  created_at=excluded.created_at""",
-            (prospect_id, weighted, decision, rationale, time.time()),
+            (tender_id, weighted, decision, rationale, time.time()),
         )
 
 
-def insert_draft(prospect_id: int, subject: str, body: str, notes: list[str]) -> int:
+def insert_draft(tender_id: int, subject: str, body: str, notes: list[str]) -> int:
     with conn() as c:
         cur = c.execute(
-            """INSERT INTO drafts (prospect_id, subject, body_markdown, personalization_json, status, created_at)
+            """INSERT INTO drafts (tender_id, subject, body_markdown, personalization_json, status, created_at)
                VALUES (?, ?, ?, ?, 'pending', ?) RETURNING id""",
-            (prospect_id, subject, body, json.dumps(notes), time.time()),
+            (tender_id, subject, body, json.dumps(notes), time.time()),
         )
         return cur.fetchone()[0]
 
@@ -185,24 +193,34 @@ def set_draft_status(draft_id: int, status: str) -> None:
 def get_draft(draft_id: int) -> dict[str, Any] | None:
     with conn() as c:
         row = c.execute(
-            """SELECT d.*, p.company_name, p.contact_email
-               FROM drafts d JOIN prospects p ON p.id = d.prospect_id
+            """SELECT d.*, t.title AS tender_title, t.buyer, t.contact_email AS tender_contact, t.country
+               FROM drafts d JOIN tenders t ON t.id = d.tender_id
                WHERE d.id=?""",
             (draft_id,),
         ).fetchone()
         if not row:
             return None
-        return dict(row)
+        d = dict(row)
+        # Backwards-compat keys for the send tool.
+        d["company_name"] = d["buyer"]  # tender's buyer is the recipient
+        d["contact_email"] = d.get("tender_contact")
+        return d
 
 
 def list_pending_drafts() -> list[dict[str, Any]]:
     with conn() as c:
         rows = c.execute(
-            """SELECT d.*, p.company_name, p.contact_email
-               FROM drafts d JOIN prospects p ON p.id = d.prospect_id
+            """SELECT d.*, t.title AS tender_title, t.buyer, t.contact_email AS tender_contact, t.country
+               FROM drafts d JOIN tenders t ON t.id = d.tender_id
                WHERE d.status='pending' ORDER BY d.created_at DESC"""
         ).fetchall()
-        return [dict(r) for r in rows]
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["company_name"] = d["buyer"]
+            d["contact_email"] = d.get("tender_contact")
+            out.append(d)
+        return out
 
 
 def start_run(run_id: str) -> None:
