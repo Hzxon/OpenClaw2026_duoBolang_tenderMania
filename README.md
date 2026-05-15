@@ -46,21 +46,25 @@ This is **not a chatbot**. There is no chat UI. The agents act on a schedule, sc
 ### Multi-agent topology
 
 ```
-                 ┌───────────────────┐
-                 │  Scraper agent    │  httpx → World Bank Procurement API
-                 │  (tool call)      │  fallback → curated fixture
-                 └─────────┬─────────┘
-                           ▼
-                 ┌───────────────────┐
-                 │  Normalizer agent │  LLM + Pydantic → TenderOpportunity
-                 └─────────┬─────────┘
-                           ▼
-       ┌───────────────────┴────────────────────┐
-       │     Multi-agent fan-out (asyncio)      │
-       ├──────────┬──────────────┬──────────────┤
-       │ capability│ eligibility │ win-prob     │   3 LLM calls in parallel
-       │  scorer   │   scorer    │  scorer      │   each cites RAG evidence
-       └────┬─────┴───────┬─────┴───────┬──────┘
+                 ┌────────────────────────────────────────────┐
+                 │  Scraper agents (one per source — tool calls)│
+                 │  ┌─────────────────┐  ┌──────────────────┐ │
+                 │  │ LPSE / PLN eProc │  │ World Bank API   │ │
+                 │  │ (Indonesian BUMN)│  │ (global, 400k)   │ │
+                 │  └────────┬────────┘  └────────┬─────────┘ │
+                 │           └──────────┬─────────┘           │
+                 └──────────────────────┼─────────────────────┘
+                                        ▼
+                              ┌──────────────────┐
+                              │ Normalizer agent │  LLM + Pydantic → TenderOpportunity
+                              └────────┬─────────┘
+                                       ▼
+       ┌───────────────────────────────┴────────────────────┐
+       │     Multi-agent fan-out (asyncio)                  │
+       ├──────────┬──────────────┬─────────────────────────┤
+       │ capability│ eligibility │ win-prob                │   3 LLM calls in parallel
+       │  scorer   │   scorer    │  scorer                 │   each cites RAG evidence
+       └────┬─────┴───────┬─────┴───────┬──────────────────┘
             └─────────────┼─────────────┘
                           ▼
                 ┌────────────────────┐
@@ -99,6 +103,20 @@ The LLM only writes the rationale once a tender clears these rules. This is how 
 ### Why BM25 instead of embeddings
 
 Our local LLM gateway (9router) doesn't expose an embeddings endpoint. Rather than ship a 300MB sentence-transformers dep for ~25 profile chunks, we use a tiny BM25 index. For corpora this small, lexical retrieval is fast, deterministic, and grounds the scorers just as well. The `RAGIndex` interface is unchanged, so swapping in embeddings later is a one-file change.
+
+---
+
+## Live data sources
+
+The pipeline pulls from two real, public, no-auth procurement endpoints in parallel:
+
+1. **PLN e-Procurement** — `https://eproc.pln.co.id/portal/pengumuman_pengadaan/alldatakhs`
+   Public DataTables JSON of *Kontrak Harga Satuan* (multi-year unit-price) tenders from PLN, Indonesia's national electricity BUMN. Includes pengadaan barang, jasa lainnya, jasa konsultansi, and pekerjaan konstruksi across regional units.
+
+2. **World Bank Procurement Notices** — `https://search.worldbank.org/api/v2/procnotices`
+   Public REST API exposing 400k+ live procurement notices across World-Bank-funded projects worldwide, including Indonesia, SEA, and global IT-development tenders.
+
+Both sources have curated Indonesian-flavored fallback fixtures (`data/fixtures/`) so demos work without network. Switch sources with `SOURCES=lpse,worldbank` (default) or single-source via `SOURCES=lpse` / `SOURCES=worldbank`.
 
 ---
 
