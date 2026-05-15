@@ -90,7 +90,7 @@ Our local LLM gateway (9router) doesn't expose an embeddings endpoint. Rather th
 
 ---
 
-## Live data sources
+## Live data sources -- temporary only support these 2 :(
 
 The pipeline pulls from two real, public, no-auth procurement endpoints in parallel:
 
