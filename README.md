@@ -30,14 +30,14 @@ There is no chat UI. The agents act on a schedule, score with reasoning, and pro
 ### Multi-agent topology
 
 ```
-                 ┌────────────────────────────────────────────┐
+                 ┌──────────────────────────────────────────────┐
                  │  Scraper agents (one per source — tool calls)│
-                 │  ┌─────────────────┐  ┌──────────────────┐ │
-                 │  │ LPSE / PLN eProc │  │ World Bank API   │ │
-                 │  │ (Indonesian BUMN)│  │ (global, 400k)   │ │
-                 │  └────────┬────────┘  └────────┬─────────┘ │
-                 │           └──────────┬─────────┘           │
-                 └──────────────────────┼─────────────────────┘
+                 │  ┌─────────────────┐  ┌──────────────────┐   │
+                 │  │ LPSE / PLN eProc │  │ World Bank API  │   │
+                 │  │ (Indonesian BUMN)│  │ (global, 400k)  │   │
+                 │  └────────┬────────┘  └────────┬─────────┘   │
+                 │           └──────────┬─────────┘             │
+                 └──────────────────────┼───────────────────────┘
                                         ▼
                               ┌──────────────────┐
                               │ Normalizer agent │  LLM + Pydantic → TenderOpportunity
