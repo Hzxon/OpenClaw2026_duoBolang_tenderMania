@@ -27,7 +27,8 @@ from sponsorus import db
 from sponsorus.agents.draft import draft_outreach
 from sponsorus.agents.normalize import normalize
 from sponsorus.agents.score import ScoreContext, aggregate, score_all
-from sponsorus.agents.scrape import scrape
+from sponsorus.agents.scrape import scrape as scrape_worldbank
+from sponsorus.agents.scrape_lpse import scrape as scrape_lpse
 from sponsorus.rag import RAGIndex, company_profile_to_chunks
 from sponsorus.schemas import OutreachDraft
 
@@ -38,17 +39,44 @@ def _log(msg: str) -> None:
     print(f"[pipeline] {msg}", flush=True)
 
 
+def _dispatch_scrape(sources: list[str], prefer_live: bool, per_source: int) -> tuple[list, list[str]]:
+    """Run all configured scraper agents and merge their outputs.
+
+    Each scraper is a tool: it returns a list of RawTender + a source label.
+    The orchestrator dispatches them in sequence (small N, no benefit to
+    parallelizing the I/O at this volume) and concatenates results.
+    """
+    raw_all: list = []
+    labels: list[str] = []
+    for src in sources:
+        if src == "worldbank":
+            raws, lbl = scrape_worldbank(prefer_live=prefer_live, max_results=per_source)
+        elif src == "lpse":
+            raws, lbl = scrape_lpse(prefer_live=prefer_live, max_results=per_source)
+        else:
+            print(f"[pipeline] unknown source: {src!r}; skipping")
+            continue
+        print(f"[pipeline] {src}: {len(raws)} raw tenders ({lbl})")
+        raw_all.extend(raws)
+        labels.append(lbl)
+    return raw_all, labels
+
+
 def run_pipeline(
     prefer_live: bool = True,
     max_tenders: int = 6,
     threshold: Optional[float] = None,
     push_telegram: bool = True,
+    sources: Optional[list[str]] = None,
 ) -> dict:
     threshold = threshold if threshold is not None else float(os.environ.get("SCORE_THRESHOLD", "60"))
+    if sources is None:
+        sources_env = os.environ.get("SOURCES", "lpse,worldbank")
+        sources = [s.strip() for s in sources_env.split(",") if s.strip()]
     run_id = uuid.uuid4().hex[:8]
     db.start_run(run_id)
     t0 = time.time()
-    _log(f"run {run_id} started — threshold={threshold}, live={prefer_live}")
+    _log(f"run {run_id} started — threshold={threshold}, sources={sources}, live={prefer_live}")
 
     profile = db.load_company_profile()
     if not profile:
@@ -58,8 +86,11 @@ def run_pipeline(
     rag = RAGIndex.build(company_profile_to_chunks(profile))
     _log(f"RAG index built over {len(rag.chunks)} chunks")
 
-    raw_list, source_label = scrape(prefer_live=prefer_live, max_results=max_tenders)
-    _log(f"scraped {len(raw_list)} raw tenders from {source_label}")
+    per_source = max(2, max_tenders // max(1, len(sources)))
+    raw_list, source_labels = _dispatch_scrape(sources, prefer_live, per_source)
+    raw_list = raw_list[:max_tenders]
+    source_label = " + ".join(source_labels) if source_labels else "none"
+    _log(f"merged {len(raw_list)} tenders from {len(sources)} source(s): {source_label}")
 
     pursued: list[tuple[int, OutreachDraft]] = []
     archived = 0
