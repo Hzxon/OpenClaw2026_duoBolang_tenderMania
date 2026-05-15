@@ -82,7 +82,7 @@ SOURCES=lpse \
 PREFER_LIVE=false \
 SCORE_THRESHOLD=40 \
 MAX_TENDERS=2 \
-PUSH_TELEGRAM=false \
+PUSH_TELEGRAM=true \
 python3 -m sponsorus.run_pipeline
 pause
 
