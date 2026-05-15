@@ -1,0 +1,72 @@
+name: "RISTEK Hackfest 2026"
+tagline: "Indonesia's largest student-run AI & infra hackathon."
+event_date: "2026-08-22"
+location: "Jakarta, Indonesia (hybrid)"
+
+description: |
+  RISTEK Hackfest is a 36-hour hackathon hosted by RISTEK Fasilkom Universitas Indonesia.
+  Tracks include AI agents, fintech, climate tech, and creator tooling.
+  600+ student builders, plus a public expo on day 2 with industry attendees.
+
+audience:
+  size: 600
+  demographics: "Computer-science / engineering university students (18-23), Indonesian Gen Z, with strong representation from UI, ITB, BINUS, UGM, ITS"
+  geographies:
+    - Indonesia
+    - Singapore
+    - Malaysia
+
+value_props:
+  - "Direct top-of-funnel access to 600+ pre-screened CS/engineering students from Indonesia's top universities."
+  - "Logo + 5-min keynote slot at the Day-2 public expo (est. 300 industry attendees)."
+  - "Co-branded prize challenge for tier-2+ sponsors (your API or product, judged by your team)."
+  - "Talent funnel: opt-in resume database of all participants, shared with platinum sponsors only."
+  - "Indonesian-language brand activation across our 12k-follower student community channels (Instagram, LinkedIn, Discord)."
+
+sponsorship_tiers:
+  - name: "Bronze"
+    price_idr: 15000000
+    deliverables:
+      - "Logo on event website + retro tee"
+      - "Workshop slot (30 min, optional)"
+  - name: "Silver"
+    price_idr: 35000000
+    deliverables:
+      - "All Bronze deliverables"
+      - "Branded prize track (USD 500 cash + your swag)"
+      - "API/SDK demo booth at expo"
+  - name: "Gold"
+    price_idr: 75000000
+    deliverables:
+      - "All Silver deliverables"
+      - "5-min keynote on Day 2"
+      - "Resume database access (consenting participants)"
+  - name: "Platinum"
+    price_idr: 150000000
+    deliverables:
+      - "All Gold deliverables"
+      - "Title-co-sponsor branding ('powered by <Sponsor>')"
+      - "Pre-event recruiting webinar (we co-host & promote)"
+
+past_sponsors:
+  - name: "GitHub Education"
+    tier: "Gold"
+    rationale: "Long-running partnership for student dev programs; Hackfest is their largest Indonesian student touchpoint."
+  - name: "Tokopedia"
+    tier: "Platinum"
+    rationale: "Top-of-funnel hiring for engineering and PM internships. Title sponsor in 2024."
+  - name: "Niagahoster"
+    tier: "Silver"
+    rationale: "Hosting credits as workshop swag; consistent return sponsor since 2022."
+
+contact:
+  organizer: "RISTEK Fasilkom UI"
+  email: "sponsorship@ristek.cs.ui.ac.id"
+  primary_language: "id-ID"
+  secondary_language: "en-US"
+
+ideal_sponsor_profile: |
+  Companies with active dev-rel, university recruiting, or community-marketing arms.
+  Strongest fit: developer platforms, fintech (Indonesia/SEA), edtech, cloud/infra,
+  AI/LLM products. Weak fit: heavy industry, oil & gas, traditional FMCG without
+  university programs.
