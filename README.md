@@ -9,7 +9,7 @@
 
 ## What it does
 
-A consultancy spends hours every week trawling LPSE, World Bank, and ministry portals for tenders that fit. Most don't. SponsorUs replaces that grind with an agent loop:
+A consultancy spends hours every week trawling LPSE, World Bank, and ministry portals for tenders that fit. Most don't. tenderMania replaces that grind with an agent loop:
 
 ```
 [live scrape]  →  [LLM normalize → Pydantic]  →  [3 parallel scorer agents]
@@ -43,12 +43,12 @@ There is no chat UI. The agents act on a schedule, score with reasoning, and pro
                               │ Normalizer agent │  LLM + Pydantic → TenderOpportunity
                               └────────┬─────────┘
                                        ▼
-       ┌───────────────────────────────┴────────────────────┐
-       │     Multi-agent fan-out (asyncio)                  │
-       ├──────────┬──────────────┬─────────────────────────┤
-       │ capability│ eligibility │ win-prob                │   3 LLM calls in parallel
-       │  scorer   │   scorer    │  scorer                 │   each cites RAG evidence
-       └────┬─────┴───────┬─────┴───────┬──────────────────┘
+       ┌───────────────────────────────┴────────────────┐
+       │     Multi-agent fan-out (asyncio)              │
+       ├───────────┬─────────────┬──────────────────────┤
+       │ capability│ eligibility │ win-prob             │   3 LLM calls in parallel
+       │  scorer   │   scorer    │  scorer              │   each cites RAG evidence
+       └────┬──────┴──────┬──────┴──────┬───────────────┘
             └─────────────┼─────────────┘
                           ▼
                 ┌────────────────────┐
@@ -86,7 +86,7 @@ The LLM only writes the rationale once a tender clears these rules. This is how 
 
 ### Why BM25 instead of embeddings
 
-Our local LLM gateway (9router) doesn't expose an embeddings endpoint. Rather than ship a 300MB sentence-transformers dep for ~25 profile chunks, we use a tiny BM25 index. For corpora this small, lexical retrieval is fast, deterministic, and grounds the scorers just as well. The `RAGIndex` interface is unchanged, so swapping in embeddings later is a one-file change.
+Our local LLM gateway doesn't expose an embeddings endpoint. Rather than ship a 300MB sentence-transformers dep for ~25 profile chunks, we use a tiny BM25 index. For corpora this small, lexical retrieval is fast, deterministic, and grounds the scorers just as well. The `RAGIndex` interface is unchanged, so swapping in embeddings later is a one-file change.
 
 ---
 
@@ -123,7 +123,7 @@ Both sources have curated Indonesian-flavored fallback fixtures (`data/fixtures/
 
 ### Prasyarat / Prerequisites
 
-- **Python 3.11 atau lebih baru** (`python3 --version` harus menampilkan ≥ 3.11). Kami menguji di 3.11, 3.12, dan 3.14.
+- **Python 3.11 atau lebih baru** (`python3 --version` harus menampilkan ≥ 3.11).
 - **`git`**
 - **API key dari endpoint yang OpenAI-compatible.** Public OpenAI (`sk-...`) bekerja langsung. Endpoint lokal seperti Ollama, LM Studio, atau gateway internal juga bekerja — cukup ubah `SPONSORUS_LLM_BASE_URL` di `.env`.
 - *(Opsional)* Bot Telegram + chat ID jika ingin gerbang persetujuan via Telegram. Tanpa ini, persetujuan dilakukan via CLI.
