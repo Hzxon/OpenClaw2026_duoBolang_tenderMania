@@ -125,8 +125,8 @@ Both sources have curated Indonesian-flavored fallback fixtures (`data/fixtures/
 
 - **Python 3.11 atau lebih baru** (`python3 --version` harus menampilkan ≥ 3.11).
 - **`git`**
-- **API key dari endpoint yang OpenAI-compatible.** Public OpenAI (`sk-...`) bekerja langsung. Endpoint lokal seperti Ollama, LM Studio, atau gateway internal juga bekerja — cukup ubah `SPONSORUS_LLM_BASE_URL` di `.env`.
-- *(Opsional)* Bot Telegram + chat ID jika ingin gerbang persetujuan via Telegram. Tanpa ini, persetujuan dilakukan via CLI.
+- **API key dari endpoint yang OpenAI-compatible.** Public OpenAI (`sk-...`). Endpoint lokal seperti Ollama, LM Studio, atau gateway internal — cukup ubah `SPONSORUS_LLM_BASE_URL` di `.env`.
+- *(Opsional)* Bot Telegram + chat ID gerbang persetujuan via Telegram. Tanpa ini, persetujuan dilakukan via CLI.
 - *(Opsional)* Akun Gmail + app password jika ingin benar-benar mengirim email. Tanpa ini, mode DRY-RUN akan mencetak email ke terminal.
 
 ### Step 1 — Clone & install
